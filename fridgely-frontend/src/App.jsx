@@ -1,43 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Leaf, 
+  Milk, 
+  Beef, 
+  Fish, 
+  Egg, 
+  Apple, 
+  Flame, 
+  Soup, 
+  Cookie, 
+  Utensils, 
+  Trash2, 
+  Calendar,
+  Sparkles,
+  Inbox,
+  CheckCircle,
+  AlertTriangle,
+  Plus
+} from 'lucide-react';
 
-axios.defaults.headers.common['Bypass-Tunnel-Reminder'] = 'true';
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 function App() {
   const [nameInput, setNameInput] = useState("");
   const [dateInput, setDateInput] = useState("");
   const [myFridge, setMyFridge] = useState([]);
   const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch all data from Nyasa's server when the dashboard boots up
+  // Load everything when the website first fires up
   useEffect(() => {
     loadDashboardData();
   }, []);
 
   const loadDashboardData = async () => {
+    setLoading(true);
     try {
-      const fridgeRes = await axios.get('https://forty-animals-fry.loca.lt/api/ingredients');
+      const fridgeRes = await axios.get(`${BASE_URL}/api/ingredients`);
       setMyFridge(fridgeRes.data);
 
-      const recipeRes = await axios.get('https://forty-animals-fry.loca.lt/api/recipes/match');
+      const recipeRes = await axios.get(`${BASE_URL}/api/recipes/match`);
       setRecipes(recipeRes.data);
     } catch (error) {
       console.error("Error updating dashboard data:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleAddItem = async (e) => {
     e.preventDefault();
-    if (!nameInput.trim() || !dateInput) return alert("Please enter both an ingredient name and an expiry date!");
+    if (!nameInput.trim() || !dateInput) return alert("Please fill out both fields!");
 
     try {
-      await axios.post('https://forty-animals-fry.loca.lt/api/ingredients', {
+      await axios.post(`${BASE_URL}/api/ingredients`, {
         name: nameInput,
         expiryDate: dateInput
       });
       setNameInput("");
       setDateInput("");
-      loadDashboardData(); // Refresh list and recipes dynamically
+      loadDashboardData(); // Refresh inventory lists and recipe logic together
     } catch (error) {
       console.error("Error adding item:", error);
     }
@@ -45,113 +69,412 @@ function App() {
 
   const handleDeleteItem = async (id) => {
     try {
-      await axios.delete(`https://forty-animals-fry.loca.lt/api/ingredients/${id}`);
-      loadDashboardData(); // Refresh list and recipes instantly
+      await axios.delete(`${BASE_URL}/api/ingredients/${id}`);
+      loadDashboardData(); // Refresh instantly
     } catch (error) {
       console.error("Error deleting item:", error);
     }
   };
 
-  // Helper function to color code expiry status visually
+  // Helper function to visually color code the urgency level of expiring foods
   const getExpiryBadgeStyle = (dateStr) => {
-    const daysLeft = Math.ceil((new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24));
-    if (daysLeft <= 0) return { bg: '#ffcdd2', text: '#b71c1c', label: 'Expired' };
-    if (daysLeft <= 3) return { bg: '#fff9c4', text: '#f57f17', label: `${daysLeft} days left` };
-    return { bg: '#c8e6c9', text: '#2e7d32', label: `${daysLeft} days left` };
+    const expiry = new Date(dateStr);
+    expiry.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+    
+    // Assume typical shelf-life max of 14 days for progress bar
+    const progressPercent = daysLeft <= 0 ? 0 : Math.min(100, (daysLeft / 14) * 100);
+
+    if (daysLeft <= 0) {
+      return {
+        badgeClass: 'bg-red-50 text-[#DC2626] border border-red-100',
+        borderClass: 'border-red-200/50',
+        iconBgClass: 'bg-red-50 text-[#DC2626]',
+        progressClass: 'bg-[#DC2626]',
+        label: 'Expired',
+        daysLeft,
+        progressPercent,
+      };
+    }
+    if (daysLeft <= 3) {
+      return {
+        badgeClass: 'bg-amber-50 text-[#D97706] border border-amber-100',
+        borderClass: 'border-amber-200/50',
+        iconBgClass: 'bg-amber-50 text-[#D97706]',
+        progressClass: 'bg-[#D97706]',
+        label: daysLeft === 1 ? '1 day left' : `${daysLeft} days left`,
+        daysLeft,
+        progressPercent,
+      };
+    }
+    return {
+      badgeClass: 'bg-emerald-50 text-[#059669] border border-emerald-100',
+      borderClass: 'border-emerald-200/50',
+      iconBgClass: 'bg-emerald-50 text-[#059669]',
+      progressClass: 'bg-[#059669]',
+      label: `${daysLeft} days left`,
+      daysLeft,
+      progressPercent,
+    };
+  };
+
+  // Helper to map ingredients to clean Lucide icons
+  const getIngredientIcon = (name) => {
+    const lowercaseName = name.toLowerCase();
+    
+    if (lowercaseName.includes('milk') || lowercaseName.includes('cheese') || lowercaseName.includes('paneer') || lowercaseName.includes('butter') || lowercaseName.includes('yogurt') || lowercaseName.includes('cream') || lowercaseName.includes('dairy') || lowercaseName.includes('dahi') || lowercaseName.includes('tofu')) {
+      return <Milk className="w-5 h-5" />;
+    }
+    if (lowercaseName.includes('beef') || lowercaseName.includes('meat') || lowercaseName.includes('pork') || lowercaseName.includes('chicken') || lowercaseName.includes('lamb') || lowercaseName.includes('bacon') || lowercaseName.includes('steak') || lowercaseName.includes('turkey') || lowercaseName.includes('ham') || lowercaseName.includes('salami')) {
+      return <Beef className="w-5 h-5" />;
+    }
+    if (lowercaseName.includes('fish') || lowercaseName.includes('salmon') || lowercaseName.includes('tuna') || lowercaseName.includes('shrimp') || lowercaseName.includes('seafood') || lowercaseName.includes('crab') || lowercaseName.includes('lobster') || lowercaseName.includes('prawn')) {
+      return <Fish className="w-5 h-5" />;
+    }
+    if (lowercaseName.includes('egg')) {
+      return <Egg className="w-5 h-5" />;
+    }
+    if (lowercaseName.includes('apple') || lowercaseName.includes('banana') || lowercaseName.includes('orange') || lowercaseName.includes('grape') || lowercaseName.includes('strawberry') || lowercaseName.includes('mango') || lowercaseName.includes('fruit') || lowercaseName.includes('peach') || lowercaseName.includes('berry') || lowercaseName.includes('lemon') || lowercaseName.includes('lime') || lowercaseName.includes('watermelon') || lowercaseName.includes('pineapple')) {
+      return <Apple className="w-5 h-5" />;
+    }
+    if (lowercaseName.includes('tomato') || lowercaseName.includes('onion') || lowercaseName.includes('garlic') || lowercaseName.includes('leaf') || lowercaseName.includes('salad') || lowercaseName.includes('lettuce') || lowercaseName.includes('spinach') || lowercaseName.includes('veg') || lowercaseName.includes('carrot') || lowercaseName.includes('cucumber') || lowercaseName.includes('potato') || lowercaseName.includes('broccoli') || lowercaseName.includes('cabbage') || lowercaseName.includes('herb') || lowercaseName.includes('ginger') || lowercaseName.includes('coriander') || lowercaseName.includes('mint') || lowercaseName.includes('cilantro')) {
+      return <Leaf className="w-5 h-5" />;
+    }
+    if (lowercaseName.includes('chili') || lowercaseName.includes('spicy') || lowercaseName.includes('hot') || lowercaseName.includes('pepper') || lowercaseName.includes('spice') || lowercaseName.includes('masala')) {
+      return <Flame className="w-5 h-5" />;
+    }
+    if (lowercaseName.includes('soup') || lowercaseName.includes('broth') || lowercaseName.includes('sauce') || lowercaseName.includes('gravy') || lowercaseName.includes('curry')) {
+      return <Soup className="w-5 h-5" />;
+    }
+    if (lowercaseName.includes('bread') || lowercaseName.includes('wheat') || lowercaseName.includes('rice') || lowercaseName.includes('pasta') || lowercaseName.includes('grain') || lowercaseName.includes('flour') || lowercaseName.includes('cereal') || lowercaseName.includes('oats') || lowercaseName.includes('cookie') || lowercaseName.includes('biscuit') || lowercaseName.includes('roti') || lowercaseName.includes('tortilla') || lowercaseName.includes('naan')) {
+      return <Cookie className="w-5 h-5" />;
+    }
+    return <Utensils className="w-5 h-5" />;
   };
 
   return (
-    <div style={{ padding: '30px', fontFamily: 'Segoe UI, sans-serif', maxWidth: '900px', margin: '0 auto', display: 'flex', gap: '30px' }}>
-
-      {/* LEFT COLUMN: Input Control & Inventory Tracker */}
-      <div style={{ flex: 1, minWidth: '350px' }}>
-        <h1 style={{ color: '#2e7d32', marginBottom: '5px' }}>🥗 Fridgely Control Center</h1>
-        <p style={{ color: '#666', fontSize: '14px', marginTop: '0', marginBottom: '25px' }}>Smart Anti-Waste Hostel Tracker</p>
-
-        {/* Form Input Setup */}
-        <form onSubmit={handleAddItem} style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: '25px' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', fontSize: '13px' }}>Ingredient Name</label>
-            <input
-              type="text"
-              placeholder="e.g. Tomato, Paneer, Milk"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              style={{ padding: '10px', width: '93%', borderRadius: '4px', border: '1px solid #ccc' }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', fontSize: '13px' }}>Expiry Date</label>
-            <input
-              type="date"
-              value={dateInput}
-              onChange={(e) => setDateInput(e.target.value)}
-              style={{ padding: '10px', width: '93%', borderRadius: '4px', border: '1px solid #ccc' }}
-            />
-          </div>
-          <button type="submit" style={{ padding: '12px', backgroundColor: '#2e7d32', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginTop: '5px' }}>
-            📥 Secure Item inside Fridge
-          </button>
-        </form>
-
-        {/* Dynamic Shelf Display */}
-        <h3>My Inventory (Sorted by Expiry):</h3>
-        <div style={{ maxHeight: '350px', overflowY: 'auto', background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
-          {myFridge.length === 0 ? <p style={{ color: '#999', textAlign: 'center' }}>Fridge is empty. Add ingredients above!</p> : null}
-          {myFridge.map((item) => {
-            const badge = getExpiryBadgeStyle(item.expiryDate);
-            return (
-              <div key={item._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '12px', borderRadius: '6px', marginBottom: '10px', borderLeft: `5px solid ${badge.text}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <div>
-                  <span style={{ textTransform: 'capitalize', fontWeight: '600' }}>{item.name}</span>
-                  <span style={{ marginLeft: '10px', fontSize: '11px', padding: '3px 8px', borderRadius: '12px', backgroundColor: badge.bg, color: badge.text, fontWeight: 'bold' }}>{badge.label}</span>
-                </div>
-                <button onClick={() => handleDeleteItem(item._id)} style={{ border: 'none', background: 'none', color: '#d32f2f', cursor: 'pointer', fontSize: '16px' }}>🗑️</button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* RIGHT COLUMN: The AI Recipe Recommendation Desk */}
-      <div style={{ flex: 1.2 }}>
-        <h2 style={{ color: '#1565c0', marginTop: '10px' }}>🍽️ Cooking Suggestions Engine</h2>
-        <p style={{ color: '#666', fontSize: '14px' }}>Real-time match scoring based on your active items:</p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
-          {recipes.length === 0 ? (
-            <div style={{ background: '#e3f2fd', padding: '20px', borderRadius: '8px', textAlign: 'center', color: '#0d47a1' }}>
-              ℹ️ No direct recipe matches yet. Try adding <strong>Tomato</strong>, <strong>Onion</strong>, <strong>Paneer</strong>, or <strong>Rice</strong> to test the tracking library engine.
+    <div className="min-h-screen bg-[#F9FAFB] text-[#1F2937] font-sans antialiased py-8 px-4 sm:px-6 lg:px-8 flex items-center justify-center w-full">
+      <div className="max-w-6xl w-full mx-auto flex flex-col lg:flex-row gap-8 items-start">
+        
+        {/* LEFT COLUMN: Input Control & Shelf Inventory */}
+        <div className="flex-1 w-full lg:max-w-md space-y-6">
+          
+          {/* Header Card */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm flex items-center gap-4 border border-slate-100">
+            <div className="p-3 bg-emerald-50 rounded-xl text-[#059669]">
+              <Utensils className="w-8 h-8" />
             </div>
-          ) : null}
+            <div>
+              <h1 className="text-2xl font-bold text-[#1F2937] tracking-tight">
+                Fridgely Control Center
+              </h1>
+              <p className="text-xs font-semibold text-[#4B5563] uppercase tracking-wider mt-0.5">
+                Smart Anti-Waste Hostel Tracker
+              </p>
+            </div>
+          </div>
 
-          {recipes.map((recipe) => (
-            <div key={recipe._id} style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', border: '1px solid #e0e0e0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3 style={{ margin: '0', color: '#333' }}>{recipe.title}</h3>
-                <span style={{ fontSize: '13px', padding: '4px 10px', borderRadius: '4px', backgroundColor: recipe.matchPercentage === 100 ? '#e8f5e9' : '#fff3e0', color: recipe.matchPercentage === 100 ? '#2e7d32' : '#e65100', fontWeight: 'bold' }}>
-                  {recipe.matchPercentage}% Match
-                </span>
-              </div>
+          {/* Input Form */}
+          <form onSubmit={handleAddItem} className="flex flex-col gap-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h2 className="text-lg font-bold text-[#1F2937] border-b border-slate-100 pb-2 flex items-center gap-2">
+              <Plus className="w-5 h-5 text-[#059669]" /> Add New Ingredient
+            </h2>
+            
+            {/* Floating Label - Ingredient Name */}
+            <div className="relative">
+              <input
+                type="text"
+                id="nameInput"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                placeholder=" "
+                className="peer block w-full px-4 pt-6 pb-2 text-sm text-[#1F2937] bg-[#F9FAFB] border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#059669] focus:border-[#059669] transition-all placeholder-transparent"
+              />
+              <label
+                htmlFor="nameInput"
+                className={`absolute text-xs font-bold uppercase tracking-wider duration-150 transform origin-[0] left-4 top-4 z-10 pointer-events-none transition-all
+                  ${nameInput ? 'scale-85 -translate-y-3 text-[#059669]' : 'scale-100 translate-y-0 text-[#4B5563] peer-focus:scale-85 peer-focus:-translate-y-3 peer-focus:text-[#059669]'}
+                `}
+              >
+                Ingredient Name
+              </label>
+            </div>
+            
+            {/* Floating Label - Expiry Date */}
+            <div className="relative">
+              <input
+                type="date"
+                id="dateInput"
+                value={dateInput}
+                onChange={(e) => setDateInput(e.target.value)}
+                placeholder=" "
+                className="peer block w-full px-4 pt-6 pb-2 text-sm text-[#1F2937] bg-[#F9FAFB] border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#059669] focus:border-[#059669] transition-all placeholder-transparent"
+              />
+              <label
+                htmlFor="dateInput"
+                className={`absolute text-xs font-bold uppercase tracking-wider duration-150 transform origin-[0] left-4 top-4 z-10 pointer-events-none transition-all
+                  ${dateInput ? 'scale-85 -translate-y-3 text-[#059669]' : 'scale-100 translate-y-0 text-[#4B5563] peer-focus:scale-85 peer-focus:-translate-y-3 peer-focus:text-[#059669]'}
+                `}
+              >
+                Expiry Date
+              </label>
+            </div>
+            
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{
+                type: 'spring',
+                stiffness: 400,
+                damping: 25
+              }}
+              className="w-full mt-2 py-3.5 bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] text-white font-bold rounded-lg shadow-sm hover:shadow transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 text-sm border-none"
+            >
+              <Inbox className="w-4 h-4" /> Secure Item inside Fridge
+            </motion.button>
+          </form>
 
-              <div style={{ fontSize: '13px', color: '#555' }}>
-                <strong>Required:</strong> {recipe.ingredientsRequired.join(', ')}
-              </div>
-
-              {recipe.missingIngredients.length > 0 ? (
-                <div style={{ fontSize: '13px', color: '#c62828', marginTop: '6px' }}>
-                  ⚠️ <strong>Missing:</strong> {recipe.missingIngredients.join(', ')}
+          {/* Shelf Inventory - Card Deck */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+            <h3 className="text-md font-bold text-[#1F2937] flex items-center justify-between">
+              <span>My Inventory</span>
+              <span className="text-xs bg-[#F9FAFB] border border-slate-200 text-[#4B5563] px-2.5 py-0.5 rounded-full font-medium">
+                Sorted by Expiry
+              </span>
+            </h3>
+            
+            <div className="max-h-[380px] overflow-y-auto space-y-3 pr-1">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#059669]"></div>
+                  <p className="text-xs text-[#4B5563] mt-3 font-semibold text-center">Loading inventory...</p>
+                </div>
+              ) : myFridge.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-slate-400 text-sm">Fridge is empty.</p>
+                  <p className="text-slate-500 text-xs mt-1">Add ingredients above to start tracking!</p>
                 </div>
               ) : (
-                <div style={{ fontSize: '13px', color: '#2e7d32', marginTop: '6px', fontWeight: '600' }}>
-                  ✅ You have all ingredients! Ready to cook.
-                </div>
+                <AnimatePresence initial={false}>
+                  {myFridge.map((item, index) => {
+                    const badge = getExpiryBadgeStyle(item.expiryDate);
+                    return (
+                      <motion.div
+                        key={item._id}
+                        layout
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 400,
+                          damping: 25,
+                          y: { delay: index * 0.04 }
+                        }}
+                        className={`bg-[#F9FAFB] border border-slate-100 p-4 rounded-xl flex flex-col justify-between hover:shadow-sm transition-all duration-200`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2.5 rounded-xl ${badge.iconBgClass} border border-slate-200/50`}>
+                              {getIngredientIcon(item.name)}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="capitalize font-bold text-[#1F2937] text-sm">
+                                {item.name}
+                              </span>
+                              <span className="text-[10px] text-[#4B5563] font-medium">
+                                Added Ingredient
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <button
+                            onClick={() => handleDeleteItem(item._id)}
+                            className="p-1.5 hover:bg-slate-200/50 rounded-lg text-[#4B5563] hover:text-[#DC2626] transition-colors duration-150 cursor-pointer"
+                            title="Delete item"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between">
+                          <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${badge.badgeClass}`}>
+                            {badge.label}
+                          </span>
+                          <span className="text-[10px] text-[#4B5563] flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-[#4B5563]" />
+                            {new Date(item.expiryDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'})}
+                          </span>
+                        </div>
+
+                        {/* Freshness progress bar */}
+                        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden mt-3.5">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-500 ${badge.progressClass}`}
+                            style={{ width: `${badge.progressPercent}%` }}
+                          />
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
               )}
             </div>
-          ))}
+          </div>
         </div>
-      </div>
 
+        {/* RIGHT COLUMN: Cooking Suggestions Panel */}
+        <div className="flex-[1.2] w-full bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-[#1F2937] flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[#059669] animate-pulse" /> Cooking Suggestions Engine
+            </h2>
+            <p className="text-sm text-[#4B5563] mt-1">
+              Real-time match scoring based on your active items:
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#059669]"></div>
+                <p className="text-sm text-[#4B5563] mt-4 font-semibold text-center">
+                  Connecting to suggestions engine...
+                </p>
+              </div>
+            ) : recipes.length === 0 ? (
+              <div className="bg-[#F9FAFB] border border-slate-200 p-6 rounded-2xl text-center text-[#4B5563] leading-relaxed shadow-sm">
+                <span className="block text-xl mb-1 text-slate-400">ℹ</span>
+                No direct recipe matches yet. Try adding <strong className="text-[#059669]">Tomato</strong>, <strong className="text-[#059669]">Onion</strong>, <strong className="text-[#059669]">Paneer</strong>, or <strong className="text-[#059669]">Rice</strong> to test the tracking library engine.
+              </div>
+            ) : (
+              <AnimatePresence initial={false}>
+                {recipes.map((recipe, index) => {
+                  const radius = 16;
+                  const circumference = 2 * Math.PI * radius;
+                  const strokeDashoffset = circumference - (recipe.matchPercentage / 100) * circumference;
+                  
+                  return (
+                    <motion.div
+                      key={recipe._id}
+                      layout
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 400,
+                        damping: 25,
+                        y: { delay: index * 0.05 }
+                      }}
+                      className="bg-[#F9FAFB] border border-slate-100 p-5 rounded-xl hover:shadow-sm transition duration-200 space-y-4"
+                    >
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-bold text-[#1F2937] text-base lg:text-lg">
+                          {recipe.title}
+                        </h3>
+                        
+                        {/* High-contrast circular match indicator */}
+                        <div className="relative flex items-center justify-center w-12 h-12 shrink-0">
+                          <svg className="w-12 h-12 transform -rotate-90">
+                            <circle
+                              cx="24"
+                              cy="24"
+                              r={radius}
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              fill="transparent"
+                              className="text-slate-200"
+                            />
+                            <circle
+                              cx="24"
+                              cy="24"
+                              r={radius}
+                              stroke={recipe.matchPercentage === 100 ? "#059669" : "#D97706"}
+                              strokeWidth="3.5"
+                              fill="transparent"
+                              strokeDasharray={circumference}
+                              strokeDashoffset={strokeDashoffset}
+                              strokeLinecap="round"
+                              className="transition-all duration-500"
+                            />
+                          </svg>
+                          <span className="absolute text-[10px] font-black text-[#1F2937]">
+                            {recipe.matchPercentage}%
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Required Ingredients tags */}
+                      <div className="space-y-2">
+                        <span className="block text-[10px] font-bold text-[#4B5563] uppercase tracking-wider">
+                          Required Ingredients
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {recipe.ingredientsRequired.map((ing, idx) => {
+                            const isMissing = recipe.missingIngredients.includes(ing);
+                            return (
+                              <span 
+                                key={idx} 
+                                className={`text-xs px-2.5 py-1 rounded-lg border font-medium capitalize flex items-center gap-1.5 transition-all ${
+                                  isMissing 
+                                    ? 'bg-white text-[#4B5563]/60 border-slate-250 line-through decoration-slate-350' 
+                                    : 'bg-white text-[#1F2937] border-slate-200'
+                                }`}
+                              >
+                                {!isMissing && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
+                                )}
+                                {isMissing && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                )}
+                                {ing}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      {/* Missing Ingredients alerts / status */}
+                      {recipe.missingIngredients.length > 0 ? (
+                        <div className="pt-3 border-t border-slate-200">
+                          <div className="text-[10px] font-bold text-[#DC2626] flex items-center gap-1.5 mb-2 uppercase tracking-wider">
+                            <AlertTriangle className="w-3.5 h-3.5 text-[#DC2626] shrink-0" />
+                            <span>Missing Ingredients</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {recipe.missingIngredients.map((ing, idx) => (
+                              <span 
+                                key={idx} 
+                                className="text-xs px-2.5 py-1 bg-white text-[#1F2937] rounded-lg border border-slate-200 flex items-center gap-1.5 font-semibold capitalize shadow-sm"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626]" />
+                                {ing}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="pt-3 border-t border-slate-200">
+                          <div className="text-xs text-[#059669] flex items-center gap-1.5 font-bold px-3 py-2 bg-emerald-50 rounded-xl border border-emerald-100 w-fit">
+                            <CheckCircle className="w-4 h-4 text-[#059669] shrink-0" />
+                            <span>Ready to cook! You have all ingredients.</span>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            )}
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
